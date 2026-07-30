@@ -1,0 +1,7 @@
+[workspace]
+resolver = "3"
+members = ["core", "flow", "tui"]
+
+[workspace.dependencies]
+# error handling
+anyhow = "1.0"

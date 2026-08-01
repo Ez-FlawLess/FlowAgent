@@ -1,0 +1,10 @@
+[package]
+name = "flowagent-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+flowagent-core = { path = "../core" }
+clap = "4.6.4"
+anyhow = { workspace = true }
+tokio = { workspace = true }

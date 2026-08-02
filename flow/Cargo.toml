@@ -4,8 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-thiserror = { workspace = true }
 serde = { workspace = true }
-# schemars = "1.2.2"
-strum = { workspace = true }
-getset = { workspace = true }

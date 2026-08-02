@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use getset::Getters;
 use serde::{Deserialize, Serialize};
 use strum::EnumCount;
@@ -15,9 +17,9 @@ pub mod step;
 pub struct UnverifiedFlow {
     coding_agents: Vec<CodingAgent>,
 
-    agents: Option<Vec<Agent>>,
+    agents: Option<HashMap<String, Agent>>,
 
-    commands: Option<Vec<Command>>,
+    commands: Option<HashMap<String, Command>>,
 
     skills: Option<Vec<Skill>>,
 
@@ -32,10 +34,10 @@ pub struct VerifiedFlow {
     coding_agents: Vec<CodingAgent>,
 
     #[getset(get)]
-    agents: Vec<Agent>,
+    agents: HashMap<String, Agent>,
 
     #[getset(get)]
-    commands: Vec<Command>,
+    commands: HashMap<String, Command>,
 
     #[getset(get)]
     skills: Vec<Skill>,
@@ -78,16 +80,20 @@ impl TryFrom<UnverifiedFlow> for VerifiedFlow {
         for coding_agent in value.coding_agents.iter() {
             match coding_agent {
                 CodingAgent::OpenCode => {
-                    let mut agent_names = vec!["plan", "build"];
-
-                    if let Some(agents) = value.agents.as_ref() {
-                        agent_names.extend(agents.iter().map(|agent| agent.name.as_str()));
-                    }
-
                     for step in value.steps.iter() {
-                        if !agent_names.iter().any(|&name| name == step.agent) {
-                            return Err(VerifyFlowErr::InvalidStepAgent(step.agent.to_string()));
+                        if matches!(step.agent.as_str(), "plan" | "build") {
+                            continue;
                         }
+                        if value
+                            .agents
+                            .as_ref()
+                            .and_then(|agents| agents.get(step.agent.as_str()))
+                            .is_some()
+                        {
+                            continue;
+                        }
+
+                        return Err(VerifyFlowErr::InvalidStepAgent(step.agent.clone()));
                     }
                 }
             }
@@ -118,8 +124,10 @@ pub enum VerifyFlowErr {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use crate::{
-        CodingAgent, UnverifiedFlow, VerifiedFlow, VerifyFlowErr, agent::Agent, step::Step,
+        agent::Agent, step::Step, CodingAgent, UnverifiedFlow, VerifiedFlow, VerifyFlowErr,
     };
 
     #[test]
@@ -172,16 +180,22 @@ mod tests {
             steps: vec![Step {
                 agent: "agi".to_string(),
             }],
-            agents: Some(vec![
-                Agent {
-                    name: "coder".to_string(),
-                    prompt: "write code".to_string(),
-                },
-                Agent {
-                    name: "reviewer".to_string(),
-                    prompt: "review code".to_string(),
-                },
-            ]),
+            agents: Some(HashMap::from_iter([
+                (
+                    "coder".to_string(),
+                    Agent {
+                        prompt: "write code".to_string(),
+                        ..Default::default()
+                    },
+                ),
+                (
+                    "reviewer".to_string(),
+                    Agent {
+                        prompt: "review code".to_string(),
+                        ..Default::default()
+                    },
+                ),
+            ])),
             ..Default::default()
         };
 
@@ -224,16 +238,22 @@ mod tests {
                     agent: "plan".to_string(),
                 },
             ],
-            agents: Some(vec![
-                Agent {
-                    name: "coder".to_string(),
-                    prompt: "write code".to_string(),
-                },
-                Agent {
-                    name: "reviewer".to_string(),
-                    prompt: "review code".to_string(),
-                },
-            ]),
+            agents: Some(HashMap::from_iter([
+                (
+                    "coder".to_string(),
+                    Agent {
+                        prompt: "write code".to_string(),
+                        ..Default::default()
+                    },
+                ),
+                (
+                    "reviewer".to_string(),
+                    Agent {
+                        prompt: "review code".to_string(),
+                        ..Default::default()
+                    },
+                ),
+            ])),
             ..Default::default()
         };
 

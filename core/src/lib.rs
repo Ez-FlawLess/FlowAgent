@@ -1,121 +1,101 @@
-use std::{env, io::Write, path::PathBuf};
+use std::{env, path::PathBuf};
 
 use agent_client_protocol::{
-    AcpAgent, Agent, Client, ConnectionTo,
+    AcpAgent, Agent, Client, ConnectionTo, on_receive_notification,
     schema::{
         ProtocolVersion,
         v1::{
-            ContentBlock, InitializeRequest, NewSessionRequest, PromptRequest,
-            RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
-            SelectedPermissionOutcome, SessionNotification, SessionUpdate, TextContent,
+            ClientCapabilities, ConfigOptionUpdate, ContentBlock, FileSystemCapabilities,
+            InitializeRequest, NewSessionRequest, PromptRequest, SessionConfigOptionValue,
+            SessionNotification, SessionUpdate, SetSessionConfigOptionRequest, TextContent,
         },
     },
 };
+use tokio::sync::oneshot;
 
-pub struct FlowAgentCore {}
+pub struct FlowAgentCore {
+    client: Client,
+}
 
 impl FlowAgentCore {
     pub async fn run() {
-        let agent = AcpAgent::from_args([
-            "cmd",
-            "/C",
-            r"C:\Users\Amir Ali\AppData\Roaming\npm\opencode.cmd",
-            "acp",
-        ])
-        .unwrap();
+        let agent = AcpAgent::from_args(["opencode", "acp"]).unwrap();
 
         Client
             .builder()
-            .on_receive_notification(
-                async move |notification: SessionNotification, _cx| {
-                    match notification.update {
-                        SessionUpdate::AgentMessageChunk(chunk) => {
-                            // This is the actual reply text — stream it without newlines
-                            if let ContentBlock::Text(text) = chunk.content {
-                                print!("{}", text.text);
-                                std::io::stdout().flush().ok();
-                            }
-                        }
-                        SessionUpdate::AgentThoughtChunk(_) => {
-                            // Reasoning/thinking tokens — usually noise for end users, skip or dim them
-                            // eprint!("."); // optional: show progress without content
-                        }
-                        SessionUpdate::ToolCallUpdate(tool_call) => {
-                            eprintln!("\n🔧 tool: {:?}", tool_call);
-                        }
-                        SessionUpdate::AvailableCommandsUpdate(_) => {
-                            // fires once at session start, usually not interesting to print
-                        }
-                        SessionUpdate::UsageUpdate(usage) => {
-                            eprintln!("\n(tokens used: {}/{})", usage.used, usage.size);
-                        }
-                        other => {
-                            eprintln!("\n[unhandled update]: {:?}", other);
-                        }
-                    }
-                    Ok(())
-                },
-                agent_client_protocol::on_receive_notification!(),
-            )
-            .on_receive_request(
-                async move |request: RequestPermissionRequest, responder, _connection| {
-                    eprintln!("✅ Auto-approving permission request: {request:?}");
-                    let option_id = request.options.first().map(|opt| opt.option_id.clone());
-                    if let Some(id) = option_id {
-                        responder.respond(RequestPermissionResponse::new(
-                            RequestPermissionOutcome::Selected(SelectedPermissionOutcome::new(id)),
-                        ))
-                    } else {
-                        eprintln!("⚠️ No options provided in permission request, cancelling");
-                        responder.respond(RequestPermissionResponse::new(
-                            RequestPermissionOutcome::Cancelled,
-                        ))
-                    }
-                },
-                agent_client_protocol::on_receive_request!(),
-            )
-            .connect_with(agent, |connection: ConnectionTo<Agent>| async move {
-                println!("Initializing agent...");
-                let init_response = connection
-                    .send_request(InitializeRequest::new(ProtocolVersion::V1))
-                    .block_task()
-                    .await
-                    .unwrap();
-
-                println!("✓ Agent initialized: {:?}", init_response.agent_info);
-
-                println!("📝 Creating new session...");
-
-                let new_session_response = connection
-                    .send_request(NewSessionRequest::new(
-                        env::current_dir().unwrap_or_else(|_| PathBuf::from("/")),
-                    ))
-                    .block_task()
-                    .await
-                    .unwrap();
-
-                let session_id = new_session_response.session_id;
-                println!("Session created");
-
-                println!("Sending prompt: \"Hi\"");
-                let prompt_response = connection
-                    .send_request(PromptRequest::new(
-                        session_id.clone(),
-                        vec![ContentBlock::Text(TextContent::new("Hi"))],
-                    ))
-                    .block_task()
-                    .await
-                    .unwrap();
-
-                println!(); // flush the streamed line
-                eprintln!(
-                    "✅ Agent completed! Stop reason: {:?}",
-                    prompt_response.stop_reason
-                );
-
-                Ok(())
-            })
+            .name("flowagent")
+            .on_receive_notification(Self::on_receive_notification, on_receive_notification!())
+            .connect_with(agent, Self::connect_with)
             .await
             .unwrap();
+    }
+
+    async fn on_receive_notification(
+        notification: SessionNotification,
+        _cx: ConnectionTo<Agent>,
+    ) -> Result<(), agent_client_protocol::Error> {
+        println!("notification: {:?}", notification);
+        Ok(())
+    }
+
+    async fn connect_with(cx: ConnectionTo<Agent>) -> Result<(), agent_client_protocol::Error> {
+        let init_res = cx
+            .send_request(
+                InitializeRequest::new(ProtocolVersion::V1).client_capabilities(
+                    ClientCapabilities::new().fs(FileSystemCapabilities::new()
+                        .read_text_file(false)
+                        .write_text_file(false)),
+                ),
+            )
+            .block_task()
+            .await
+            .unwrap();
+
+        println!("init done, agent info: {:?}", init_res.agent_info);
+
+        let session_res = cx
+            .send_request(NewSessionRequest::new(
+                env::current_dir().unwrap_or(PathBuf::from("/")),
+            ))
+            .block_task()
+            .await
+            .unwrap();
+
+        if let Some(config_options) = session_res.config_options.as_deref() {
+            for config_option in config_options {
+                if config_option.id.0.as_ref() == "model" {
+                    // println!("list of models: {:#?}", config_option.kind);
+                }
+            }
+        }
+
+        let session_id = session_res.session_id;
+
+        println!("created session with id {}", session_id);
+
+        let config_model_res = cx
+            .send_request(SetSessionConfigOptionRequest::new(
+                session_id.clone(),
+                "model",
+                SessionConfigOptionValue::value_id("avalai/deepseek-v4-flash"),
+            ))
+            .block_task()
+            .await
+            .unwrap();
+
+        println!("config_model_res: {:?}", config_model_res);
+
+        let prompt_res = cx
+            .send_request(PromptRequest::new(
+                session_id,
+                vec![ContentBlock::Text(TextContent::new("Hi"))],
+            ))
+            .block_task()
+            .await
+            .unwrap();
+
+        println!("prompt done with reason: {:?}", prompt_res.stop_reason);
+
+        Ok(())
     }
 }

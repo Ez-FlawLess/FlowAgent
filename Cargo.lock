@@ -735,6 +735,7 @@ name = "flowagent-core"
 version = "0.1.0"
 dependencies = [
  "agent-client-protocol",
+ "tokio",
 ]
 
 [[package]]

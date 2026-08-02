@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 agent-client-protocol = "2.0.0"
+tokio = { workspace = true }

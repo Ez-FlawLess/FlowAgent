@@ -5,16 +5,15 @@ use agent_client_protocol::{
     schema::{
         ProtocolVersion,
         v1::{
-            ClientCapabilities, ConfigOptionUpdate, ContentBlock, FileSystemCapabilities,
-            InitializeRequest, NewSessionRequest, PromptRequest, SessionConfigOptionValue,
-            SessionNotification, SessionUpdate, SetSessionConfigOptionRequest, TextContent,
+            ClientCapabilities, ContentBlock, FileSystemCapabilities, InitializeRequest,
+            NewSessionRequest, PromptRequest, SessionConfigOptionValue, SessionNotification,
+            SetSessionConfigOptionRequest, TextContent,
         },
     },
 };
-use tokio::sync::oneshot;
 
 pub struct FlowAgentCore {
-    client: Client,
+    _client: Client,
 }
 
 impl FlowAgentCore {

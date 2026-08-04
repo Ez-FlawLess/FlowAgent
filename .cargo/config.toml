@@ -1,0 +1,2 @@
+[alias]
+run-tui = "run --bin flowagent-tui"

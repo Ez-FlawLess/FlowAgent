@@ -821,7 +821,6 @@ dependencies = [
  "crossterm",
  "futures-util",
  "ratatui",
- "thiserror 2.0.19",
  "tokio",
 ]
 

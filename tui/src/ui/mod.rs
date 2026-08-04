@@ -1,27 +1,30 @@
 use ratatui::{
     buffer::Buffer,
-    layout::{Constraint, Flex, Layout, Rect},
-    style::{Color, Stylize},
-    widgets::{Block, Paragraph, Widget},
+    layout::{Constraint, Layout, Rect},
+    style::{Color, Style},
+    widgets::{Paragraph, Widget},
 };
 
-use crate::app::App;
+use crate::{
+    app::App,
+    ui::{chat_history::ChatHistory, input::Input, status::Status},
+};
+
+mod chat_history;
+mod input;
+mod status;
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let block = Block::default().bg(Color::Gray);
+        let [chat_his_area, input_area, status_area] = Layout::vertical([
+            Constraint::Min(3),
+            Constraint::Length(4),
+            Constraint::Length(1),
+        ])
+        .areas(area);
 
-        let inner_area = block.inner(area);
-
-        block.render(area, buf);
-
-        let [centered_area] = Layout::vertical([Constraint::Length(1)])
-            .flex(Flex::Center)
-            .areas(inner_area);
-
-        Paragraph::new("Hello World")
-            .centered()
-            .fg(Color::Black)
-            .render(centered_area, buf);
+        ChatHistory.render(chat_his_area, buf);
+        Input::new(self.input().as_str()).render(input_area, buf);
+        Status.render(status_area, buf);
     }
 }

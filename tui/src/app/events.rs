@@ -1,5 +1,5 @@
 use color_eyre::eyre::Context;
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use futures_util::StreamExt;
 
 use crate::app::App;
@@ -21,7 +21,12 @@ impl App {
 
     pub fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
-            KeyCode::Char('q') | KeyCode::Esc => self.exit(),
+            KeyCode::Esc => self.exit(),
+            KeyCode::Char('c') if key_event.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.exit()
+            }
+            KeyCode::Char(ch) => self.add_to_input(ch),
+            KeyCode::Backspace => self.delete_from_input(),
             _ => {}
         }
     }

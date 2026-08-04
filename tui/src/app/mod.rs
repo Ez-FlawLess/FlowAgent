@@ -1,12 +1,16 @@
 use color_eyre::eyre::Context;
 use crossterm::event::EventStream;
+use getset::Getters;
 use ratatui::{DefaultTerminal, Frame};
 
 mod events;
 
+#[derive(Getters)]
 pub struct App {
     exit: bool,
     event_stream: EventStream,
+    #[getset(get = "pub")]
+    input: String,
 }
 
 impl App {
@@ -14,6 +18,7 @@ impl App {
         Self {
             exit: false,
             event_stream: EventStream::new(),
+            input: String::new(),
         }
     }
 
@@ -35,5 +40,13 @@ impl App {
 
     fn exit(&mut self) {
         self.exit = true;
+    }
+
+    fn add_to_input(&mut self, char: char) {
+        self.input.push(char);
+    }
+
+    fn delete_from_input(&mut self) {
+        let _ = self.input.pop();
     }
 }

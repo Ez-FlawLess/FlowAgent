@@ -18,3 +18,8 @@ futures-util = "0.3.33"
 strum = { version = "0.28", features = ["derive"] }
 getset = "0.1.7"
 derive-new = "0.7.0"
+
+# logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"

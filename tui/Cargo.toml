@@ -11,3 +11,6 @@ tokio = { workspace = true }
 futures-util = { workspace = true }
 derive-new = { workspace = true }
 getset = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }

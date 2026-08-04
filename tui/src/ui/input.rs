@@ -18,10 +18,9 @@ impl Widget for Input<'_> {
             .title(" Message (press Enter to send)")
             .style(Style::default().fg(Color::White));
 
-        let inner = block.inner(area);
-        block.render(area, buf);
-
-        let paragraph = Paragraph::new(self.text).wrap(Wrap { trim: false });
-        paragraph.render(inner, buf);
+        let paragraph = Paragraph::new(self.text)
+            .wrap(Wrap { trim: false })
+            .block(block);
+        paragraph.render(area, buf);
     }
 }

@@ -1,8 +1,7 @@
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Layout, Rect},
-    style::{Color, Style},
-    widgets::{Paragraph, Widget},
+    widgets::Widget,
 };
 
 use crate::{

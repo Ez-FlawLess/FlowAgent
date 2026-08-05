@@ -10,7 +10,7 @@ use crate::{
 };
 
 mod chat_history;
-mod input;
+pub mod input;
 mod status;
 
 impl Widget for &App {
@@ -23,7 +23,7 @@ impl Widget for &App {
         .areas(area);
 
         ChatHistory.render(chat_his_area, buf);
-        Input::new(self.input().as_str()).render(input_area, buf);
+        Input::new(self.input_txtarea()).render(input_area, buf);
         Status.render(status_area, buf);
     }
 }

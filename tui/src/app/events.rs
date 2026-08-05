@@ -25,9 +25,9 @@ impl App {
             KeyCode::Char('c') if key_event.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.exit()
             }
-            KeyCode::Char(ch) => self.add_to_input(ch),
-            KeyCode::Backspace => self.delete_from_input(),
-            _ => {}
+            _ => {
+                self.input_txtarea.input(key_event);
+            }
         }
     }
 }

@@ -2,6 +2,9 @@ use color_eyre::eyre::Context;
 use crossterm::event::EventStream;
 use getset::Getters;
 use ratatui::{DefaultTerminal, Frame};
+use ratatui_textarea::TextArea;
+
+use crate::ui::input::Input;
 
 mod events;
 
@@ -10,7 +13,7 @@ pub struct App {
     exit: bool,
     event_stream: EventStream,
     #[getset(get = "pub")]
-    input: String,
+    input_txtarea: TextArea<'static>,
 }
 
 impl App {
@@ -18,14 +21,16 @@ impl App {
         Self {
             exit: false,
             event_stream: EventStream::new(),
-            input: String::new(),
+            input_txtarea: Input::textarea(),
         }
     }
 
     pub async fn run(&mut self, terminal: &mut DefaultTerminal) -> color_eyre::Result<()> {
         while !self.exit {
             terminal
-                .draw(|frame| self.render_frame(frame))
+                .draw(|frame| {
+                    self.render_frame(frame);
+                })
                 .wrap_err("failed to draw frame")?;
             self.handle_event()
                 .await
@@ -40,13 +45,5 @@ impl App {
 
     fn exit(&mut self) {
         self.exit = true;
-    }
-
-    fn add_to_input(&mut self, char: char) {
-        self.input.push(char);
-    }
-
-    fn delete_from_input(&mut self) {
-        let _ = self.input.pop();
     }
 }

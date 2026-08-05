@@ -1,15 +1,36 @@
+use derive_new::new;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
-    widgets::{Block, Borders, Widget},
+    style::{Color, Style},
+    widgets::{Block, List, ListDirection, ListItem, Widget},
 };
 
-pub struct ChatHistory;
+use crate::app::message::{Message, MsgFrom};
 
-impl Widget for ChatHistory {
+#[derive(new)]
+pub struct ChatHistory<'a> {
+    messages: &'a [Message],
+}
+
+impl Widget for ChatHistory<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let block = Block::default().borders(Borders::ALL).title(" Chat ");
+        let block = Block::default().title(" Chat ");
 
-        block.render(area, buf);
+        let items: Vec<ListItem> = if self.messages.is_empty() {
+            vec![ListItem::new(" No messages yet ").style(Style::default().fg(Color::DarkGray))]
+        } else {
+            self.messages
+                .iter()
+                .map(|msg| match msg.from {
+                    MsgFrom::User => ListItem::new(format!("> You: {}", msg.text))
+                        .style(Style::default().fg(Color::LightBlue)),
+                    MsgFrom::Ai => ListItem::new(format!("> AI: {}", msg.text))
+                        .style(Style::default().fg(Color::LightGreen)),
+                })
+                .collect()
+        };
+
+        List::new(items).block(block).render(area, buf);
     }
 }

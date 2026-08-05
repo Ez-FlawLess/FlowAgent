@@ -22,6 +22,7 @@ impl<'a> Input<'a> {
                 .style(Style::default().fg(Color::White)),
         );
         text_area.set_wrap_mode(WrapMode::Word);
+        text_area.set_line_number_style(Style::default().fg(Color::DarkGray));
 
         text_area
     }

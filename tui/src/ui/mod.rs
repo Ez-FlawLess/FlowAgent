@@ -22,7 +22,7 @@ impl Widget for &App {
         ])
         .areas(area);
 
-        ChatHistory.render(chat_his_area, buf);
+        ChatHistory::new(self.messages().as_ref()).render(chat_his_area, buf);
         Input::new(self.input_txtarea()).render(input_area, buf);
         Status.render(status_area, buf);
     }

@@ -1,12 +1,16 @@
-use color_eyre::eyre::Context;
+use color_eyre::eyre::{Context, bail};
 use crossterm::event::EventStream;
 use getset::Getters;
 use ratatui::{DefaultTerminal, Frame};
 use ratatui_textarea::TextArea;
 
-use crate::ui::input::Input;
+use crate::{
+    app::message::{Message, MsgFrom},
+    ui::input::Input,
+};
 
 mod events;
+pub mod message;
 
 #[derive(Getters)]
 pub struct App {
@@ -14,6 +18,8 @@ pub struct App {
     event_stream: EventStream,
     #[getset(get = "pub")]
     input_txtarea: TextArea<'static>,
+    #[getset(get = "pub")]
+    messages: Vec<Message>,
 }
 
 impl App {
@@ -22,6 +28,7 @@ impl App {
             exit: false,
             event_stream: EventStream::new(),
             input_txtarea: Input::textarea(),
+            messages: Vec::new(),
         }
     }
 
@@ -45,5 +52,19 @@ impl App {
 
     fn exit(&mut self) {
         self.exit = true;
+    }
+
+    fn submit_user_msg(&mut self) -> color_eyre::Result<()> {
+        if self.input_txtarea.is_empty() {
+            bail!("input is empty");
+        }
+        let msg = self.input_txtarea.lines().join("\n");
+        self.input_txtarea.clear();
+
+        let msg = Message::new(msg, MsgFrom::User);
+
+        self.messages.push(msg);
+
+        Ok(())
     }
 }

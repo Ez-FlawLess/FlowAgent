@@ -25,6 +25,12 @@ impl App {
             KeyCode::Char('c') if key_event.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.exit()
             }
+            KeyCode::Enter if key_event.modifiers.contains(KeyModifiers::SHIFT) => {
+                self.input_txtarea.insert_newline();
+            }
+            KeyCode::Enter => {
+                let _ = self.submit_user_msg();
+            }
             _ => {
                 self.input_txtarea.input(key_event);
             }

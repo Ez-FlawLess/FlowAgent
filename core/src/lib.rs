@@ -2,7 +2,7 @@ use std::process::Stdio;
 
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
-    process::{Child, ChildStdin, Command},
+    process::{Child, ChildStdin, ChildStdout, Command},
 };
 
 use crate::{
@@ -20,7 +20,7 @@ compile_error!("this code only runs on Windows, Linux, and macOS");
 
 pub struct Core {
     acp_process: Child,
-    rpc: JsonRpc<ChildStdin>,
+    rpc: JsonRpc<ChildStdin, ChildStdout>,
 }
 
 impl Core {
@@ -38,7 +38,7 @@ impl Core {
         let stdin = acp_process.stdin.take().unwrap();
         let stdout = acp_process.stdout.take().unwrap();
 
-        let mut json_rpc = JsonRpc::new(stdin);
+        let mut json_rpc = JsonRpc::new(stdin, stdout);
 
         json_rpc
             .send_request(InitRequest {
@@ -53,9 +53,7 @@ impl Core {
 
         println!("waiting for response");
 
-        let mut reader = BufReader::new(stdout);
-        let mut response = String::new();
-        reader.read_line(&mut response).await.unwrap();
+        let response = json_rpc.read_response().await;
 
         println!("{response}");
 

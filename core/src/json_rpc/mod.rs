@@ -1,5 +1,4 @@
-use derive_new::new;
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
 
 use crate::{
     json_rpc::{id::JsonRpcIdHandler, request::RpcRequest, version::JsonRpcVersion},
@@ -10,22 +9,35 @@ mod id;
 mod request;
 pub mod version;
 
-#[derive(new)]
-pub struct JsonRpc<W: AsyncWriteExt + Unpin> {
+pub struct JsonRpc<W, R> {
     writer: W,
-    #[new(default)]
+    reader: BufReader<R>,
     id_handler: JsonRpcIdHandler,
 }
 
-impl<W> JsonRpc<W>
+impl<W, R> JsonRpc<W, R>
+where
+    W: AsyncWriteExt + Unpin,
+    R: AsyncRead + Unpin,
+{
+    pub fn new(writer: W, reader: R) -> Self {
+        Self {
+            writer,
+            reader: BufReader::new(reader),
+            id_handler: JsonRpcIdHandler::new(),
+        }
+    }
+}
+
+impl<W, R> JsonRpc<W, R>
 where
     W: AsyncWriteExt + Unpin,
 {
-    pub async fn send_request<R: Request>(&mut self, request: R) {
+    pub async fn send_request<Re: Request>(&mut self, request: Re) {
         let body = RpcRequest {
             version: JsonRpcVersion::V2,
             id: self.id_handler.get_id(),
-            method: R::method(),
+            method: Re::method(),
             params: request,
         };
 
@@ -34,5 +46,16 @@ where
 
         self.writer.write_all(payload.as_bytes()).await.unwrap();
         self.writer.flush().await.unwrap();
+    }
+}
+
+impl<W, R> JsonRpc<W, R>
+where
+    R: AsyncRead + Unpin,
+{
+    pub async fn read_response(&mut self) -> String {
+        let mut response = String::new();
+        self.reader.read_line(&mut response).await.unwrap();
+        response
     }
 }

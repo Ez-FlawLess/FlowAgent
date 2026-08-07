@@ -14,6 +14,8 @@ impl JsonRpcIdHandler {
     }
 
     pub fn get_id(&self) -> JsonRpcId {
+        // Since this is for connection to a ai agent the number of requests
+        // won't be more than i32::MAX (just in case for js)
         let id = self.0.fetch_add(1, Ordering::Relaxed);
         JsonRpcId(id)
     }

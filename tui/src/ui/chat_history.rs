@@ -3,7 +3,7 @@ use ratatui::{
     buffer::Buffer,
     layout::Rect,
     style::{Color, Style},
-    widgets::{Block, List, ListDirection, ListItem, Widget},
+    widgets::{Block, List, ListItem, Widget},
 };
 
 use crate::app::message::{Message, MsgFrom};

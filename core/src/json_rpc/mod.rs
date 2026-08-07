@@ -2,16 +2,19 @@ use derive_new::new;
 use tokio::io::AsyncWriteExt;
 
 use crate::{
-    json_rpc::{request::RpcRequest, version::JsonRpcVersion},
+    json_rpc::{id::JsonRpcIdHandler, request::RpcRequest, version::JsonRpcVersion},
     requests::Request,
 };
 
+mod id;
 mod request;
 pub mod version;
 
 #[derive(new)]
 pub struct JsonRpc<W: AsyncWriteExt + Unpin> {
     writer: W,
+    #[new(default)]
+    id_handler: JsonRpcIdHandler,
 }
 
 impl<W> JsonRpc<W>
@@ -21,7 +24,7 @@ where
     pub async fn send_request<R: Request>(&mut self, request: R) {
         let body = RpcRequest {
             version: JsonRpcVersion::V2,
-            id: 0,
+            id: self.id_handler.get_id(),
             method: R::method(),
             params: request,
         };

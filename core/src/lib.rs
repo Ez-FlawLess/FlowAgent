@@ -37,8 +37,8 @@ impl Core {
 
         let mut json_rpc = JsonRpc::new(stdin, stdout);
 
-        json_rpc
-            .send_request(InitReq {
+        let response: InitRes = json_rpc
+            .send(InitReq {
                 acp_protocol_version: AcpProtocolVersion::V1,
                 client_info: ClientInfo {
                     name: "flowagent".to_string(),
@@ -46,13 +46,10 @@ impl Core {
                     version: "1.0.0".to_string(),
                 },
             })
-            .await;
+            .await
+            .unwrap();
 
-        println!("waiting for response");
-
-        let response = json_rpc.read_response::<InitRes>().await;
-
-        println!("{}", response.agent_info.name);
+        println!("name: {}", response.agent_info.name);
 
         acp_process.kill().await.unwrap();
     }

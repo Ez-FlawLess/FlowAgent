@@ -1,4 +1,5 @@
-use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
+use thiserror::Error;
+use tokio::io::{self, AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
 
 use crate::{
     json_rpc::{
@@ -33,13 +34,11 @@ where
             id_handler: JsonRpcIdHandler::new(),
         }
     }
-}
 
-impl<W, R> JsonRpc<W, R>
-where
-    W: AsyncWriteExt + Unpin,
-{
-    pub async fn send_request<Req: Request>(&mut self, request: Req) {
+    pub async fn send<Req: Request, Res: Response>(
+        &mut self,
+        request: Req,
+    ) -> Result<Res, RpcSendErr> {
         let body = RpcRequest {
             version: JsonRpcVersion::V2,
             id: self.id_handler.get_id(),
@@ -47,30 +46,39 @@ where
             params: request,
         };
 
-        let mut payload = serde_json::to_string(&body).unwrap();
+        let mut payload = serde_json::to_string(&body).or(Err(RpcSendErr::Internal))?;
         payload.push('\n');
 
-        self.writer.write_all(payload.as_bytes()).await.unwrap();
-        self.writer.flush().await.unwrap();
-    }
-}
+        self.writer
+            .write_all(payload.as_bytes())
+            .await
+            .map_err(RpcSendErr::Write)?;
+        self.writer.flush().await.map_err(RpcSendErr::Write)?;
 
-impl<W, R> JsonRpc<W, R>
-where
-    R: AsyncRead + Unpin,
-{
-    pub async fn read_response<Res: Response>(&mut self) -> Res {
         let mut response = String::new();
-        self.reader.read_line(&mut response).await.unwrap();
+        self.reader
+            .read_line(&mut response)
+            .await
+            .map_err(RpcSendErr::Read)?;
 
         let msg = serde_json::from_str::<RpcMessage>(response.as_str()).unwrap();
         let payload = RpcMsgPayload::try_from(msg).unwrap();
 
         match payload {
             RpcMsgPayload::Response { id: _, result } => {
-                serde_json::from_str::<Res>(result.get()).unwrap()
+                Ok(serde_json::from_str::<Res>(result.get()).unwrap())
             }
             _ => todo!(),
         }
     }
+}
+
+#[derive(Debug, Error)]
+pub enum RpcSendErr {
+    #[error("there was an internal error")]
+    Internal,
+    #[error("failed to write request to IO: {0}")]
+    Write(io::Error),
+    #[error("failed to read from IO: {0}")]
+    Read(io::Error),
 }

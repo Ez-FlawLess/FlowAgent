@@ -1,18 +1,15 @@
 use std::process::Stdio;
 
-use tokio::{
-    io::{AsyncBufReadExt, BufReader},
-    process::{Child, ChildStdin, ChildStdout, Command},
-};
+use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 
 use crate::{
     json_rpc::JsonRpc,
-    requests::init::{ClientInfo, InitRequest},
+    schemes::init::{ClientInfo, InitReq, InitRes},
     shared::acp_protocl_version::AcpProtocolVersion,
 };
 
 mod json_rpc;
-mod requests;
+mod schemes;
 mod shared;
 
 #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
@@ -41,11 +38,11 @@ impl Core {
         let mut json_rpc = JsonRpc::new(stdin, stdout);
 
         json_rpc
-            .send_request(InitRequest {
+            .send_request(InitReq {
                 acp_protocol_version: AcpProtocolVersion::V1,
                 client_info: ClientInfo {
                     name: "flowagent".to_string(),
-                    title: "Flow Agent".to_string(),
+                    title: Some("Flow Agent".to_string()),
                     version: "1.0.0".to_string(),
                 },
             })
@@ -53,9 +50,9 @@ impl Core {
 
         println!("waiting for response");
 
-        let response = json_rpc.read_response().await;
+        let response = json_rpc.read_response::<InitRes>().await;
 
-        println!("{response}");
+        println!("{}", response.agent_info.name);
 
         acp_process.kill().await.unwrap();
     }

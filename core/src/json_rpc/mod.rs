@@ -1,11 +1,17 @@
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
 
 use crate::{
-    json_rpc::{id::JsonRpcIdHandler, request::RpcRequest, version::JsonRpcVersion},
-    requests::Request,
+    json_rpc::{
+        id::JsonRpcIdHandler,
+        message::{RpcMessage, RpcMsgPayload},
+        request::RpcRequest,
+        version::JsonRpcVersion,
+    },
+    schemes::{Request, Response},
 };
 
 mod id;
+mod message;
 mod request;
 pub mod version;
 
@@ -33,11 +39,11 @@ impl<W, R> JsonRpc<W, R>
 where
     W: AsyncWriteExt + Unpin,
 {
-    pub async fn send_request<Re: Request>(&mut self, request: Re) {
+    pub async fn send_request<Req: Request>(&mut self, request: Req) {
         let body = RpcRequest {
             version: JsonRpcVersion::V2,
             id: self.id_handler.get_id(),
-            method: Re::method(),
+            method: Req::method(),
             params: request,
         };
 
@@ -53,9 +59,18 @@ impl<W, R> JsonRpc<W, R>
 where
     R: AsyncRead + Unpin,
 {
-    pub async fn read_response(&mut self) -> String {
+    pub async fn read_response<Res: Response>(&mut self) -> Res {
         let mut response = String::new();
         self.reader.read_line(&mut response).await.unwrap();
-        response
+
+        let msg = serde_json::from_str::<RpcMessage>(response.as_str()).unwrap();
+        let payload = RpcMsgPayload::try_from(msg).unwrap();
+
+        match payload {
+            RpcMsgPayload::Response { id: _, result } => {
+                serde_json::from_str::<Res>(result.get()).unwrap()
+            }
+            _ => todo!(),
+        }
     }
 }

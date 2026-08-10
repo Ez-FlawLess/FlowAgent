@@ -1,9 +1,9 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use crossbeam::utils::CachePadded;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Eq, Serialize)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct JsonRpcId(u32);
 
 #[derive(Default)]

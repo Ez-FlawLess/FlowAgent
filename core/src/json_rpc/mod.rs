@@ -102,3 +102,9 @@ pub enum RpcSendErr {
     #[error("failed to parse response: {0}")]
     ParseRes(serde_json::Error),
 }
+
+impl<W, R> Drop for JsonRpc<W, R> {
+    fn drop(&mut self) {
+        self.listener_handler.abort();
+    }
+}

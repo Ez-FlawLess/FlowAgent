@@ -9,5 +9,5 @@ thiserror = { workspace = true }
 serde_json = { version = "1", features = ["raw_value"] }
 serde_repr = "0.1"
 serde = { workspace = true }
-derive-new = { workspace = true }
 crossbeam = "0.8.4"
+getset = { workspace = true }

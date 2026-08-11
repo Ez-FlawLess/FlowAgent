@@ -56,6 +56,12 @@ impl Core {
             .await
             .map_err(NewCoreErr::Init)?;
 
+        if response.acp_protocol_version != AcpProtocolVersion::V1 {
+            return Err(NewCoreErr::UnsupportedAcpVersion(
+                response.acp_protocol_version,
+            ));
+        }
+
         Ok(Self {
             client_name: response
                 .agent_info
@@ -75,4 +81,6 @@ pub enum NewCoreErr {
     Internal,
     #[error("error initializing agent: {0}")]
     Init(RpcSendErr),
+    #[error("agent's acp version `{0:?}` is not supported")]
+    UnsupportedAcpVersion(AcpProtocolVersion),
 }

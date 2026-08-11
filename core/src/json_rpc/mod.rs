@@ -1,11 +1,11 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc, time::Duration};
 
-use serde_json::value::RawValue;
 use thiserror::Error;
 use tokio::{
     io::{self, AsyncRead, AsyncWriteExt},
     sync::{Mutex, RwLock, oneshot},
     task::JoinHandle,
+    time,
 };
 
 use crate::{
@@ -61,9 +61,15 @@ impl<W, R> JsonRpc<W, R>
 where
     W: AsyncWriteExt + Unpin,
 {
-    pub async fn send<Req: Request, Res: Response>(
-        &mut self,
+    pub async fn send<Req: Request, Res: Response>(&self, request: Req) -> Result<Res, RpcSendErr> {
+        self.send_with_timeout(request, Duration::from_secs(30))
+            .await
+    }
+
+    pub async fn send_with_timeout<Req: Request, Res: Response>(
+        &self,
         request: Req,
+        timeout: Duration,
     ) -> Result<Res, RpcSendErr> {
         let body = RpcRequest {
             version: JsonRpcVersion::V2,
@@ -90,7 +96,17 @@ where
             writer.flush().await.map_err(RpcSendErr::Write)?;
         };
 
-        let response = res_receiver.await.or(Err(RpcSendErr::Internal))?;
+        let response = match time::timeout(timeout, res_receiver).await {
+            Ok(Ok(res)) => res,
+            Ok(Err(_)) => return Err(RpcSendErr::Internal),
+            Err(_) => {
+                let mut list = self.waiting_list.write().await;
+                if let Some(index) = list.find_index(body.id.clone()) {
+                    let _ = list.get_sender(index);
+                }
+                return Err(RpcSendErr::Timeout);
+            }
+        };
 
         match response {
             Ok(response) => serde_json::from_str(response.get()).map_err(RpcSendErr::ParseRes),
@@ -114,6 +130,8 @@ pub enum RpcSendErr {
     ParseRes(serde_json::Error),
     #[error("rpc error returned")]
     RpcErr(RpcError),
+    #[error("request timed out")]
+    Timeout,
 }
 
 impl<W, R> Drop for JsonRpc<W, R> {

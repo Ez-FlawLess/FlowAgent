@@ -31,7 +31,13 @@ pub struct Core {
 
 impl Core {
     pub async fn new() -> Result<Self, NewCoreErr> {
-        let mut acp_process = Command::new("opencode")
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        let program = "opencode";
+
+        #[cfg(target_os = "windows")]
+        let program = "opencode.cmd";
+
+        let mut acp_process = Command::new(program)
             .arg("acp")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

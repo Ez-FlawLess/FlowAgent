@@ -609,7 +609,6 @@ name = "flowagent-core"
 version = "0.1.0"
 dependencies = [
  "crossbeam",
- "getset",
  "serde",
  "serde_json",
  "serde_repr",

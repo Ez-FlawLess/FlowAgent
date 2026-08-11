@@ -12,7 +12,7 @@ serde = { version = "1.0", features = ["derive"] }
 
 # async
 tokio = { version = "1", features = ["full"] }
-futures-util = "0.3.33"
+futures-util = "0.3"
 
 # utils
 strum = { version = "0.28", features = ["derive"] }

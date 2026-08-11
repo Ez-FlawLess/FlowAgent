@@ -55,8 +55,7 @@ impl Core<Connected> {
                     version: "1.0.0".to_string(),
                 },
             })
-            .await
-            .map_err(InitializeErr::Init)?;
+            .await?;
 
         if response.acp_protocol_version != AcpProtocolVersion::V1 {
             return Err(InitializeErr::UnsupportedAcpVersion(
@@ -87,8 +86,8 @@ pub enum NewCoreErr {
 
 #[derive(Debug, Error)]
 pub enum InitializeErr {
-    #[error("error initializing agent: {0}")]
-    Init(RpcSendErr),
+    #[error("agent returned error: {0}")]
+    Rpc(#[from] RpcSendErr),
     #[error("agent's acp version `{0:?}` is not supported")]
     UnsupportedAcpVersion(AcpProtocolVersion),
 }

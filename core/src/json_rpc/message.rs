@@ -9,7 +9,7 @@ use super::version::JsonRpcVersion;
 #[serde(rename_all = "camelCase")]
 pub struct RpcMessage {
     #[serde(rename = "jsonrpc")]
-    pub version: JsonRpcVersion,
+    pub _version: JsonRpcVersion,
     #[serde(default)]
     pub id: Option<JsonRpcId>,
     #[serde(default)]

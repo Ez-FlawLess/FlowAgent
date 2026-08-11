@@ -10,12 +10,17 @@ use tokio::{
 
 use crate::{
     json_rpc::{
-        id::JsonRpcIdHandler, listener::RpcListener, request::RpcRequest, version::JsonRpcVersion,
-        waiting_list::WaitingList,
+        error::RpcError,
+        id::JsonRpcIdHandler,
+        listener::RpcListener,
+        request::RpcRequest,
+        version::JsonRpcVersion,
+        waiting_list::{WaitingList, WaitingListSenderItem},
     },
     schemes::{Request, Response},
 };
 
+pub mod error;
 mod id;
 mod listener;
 mod message;
@@ -70,7 +75,7 @@ where
         let mut payload = serde_json::to_string(&body).or(Err(RpcSendErr::Internal))?;
         payload.push('\n');
 
-        let (res_sender, res_receiver) = oneshot::channel::<Box<RawValue>>();
+        let (res_sender, res_receiver) = oneshot::channel::<WaitingListSenderItem>();
         {
             let mut list = self.waiting_list.write().await;
             list.add_to_list(body.id.clone(), res_sender);
@@ -87,7 +92,15 @@ where
 
         let response = res_receiver.await.or(Err(RpcSendErr::Internal))?;
 
-        serde_json::from_str(response.get()).map_err(RpcSendErr::ParseRes)
+        match response {
+            Ok(response) => serde_json::from_str(response.get()).map_err(RpcSendErr::ParseRes),
+            Err(error) => {
+                let rpc_error =
+                    serde_json::from_str::<RpcError>(error.get()).map_err(RpcSendErr::ParseRes)?;
+
+                Err(RpcSendErr::RpcErr(rpc_error))
+            }
+        }
     }
 }
 
@@ -97,10 +110,10 @@ pub enum RpcSendErr {
     Internal,
     #[error("failed to write request to IO: {0}")]
     Write(io::Error),
-    #[error("failed to read from IO: {0}")]
-    Read(io::Error),
     #[error("failed to parse response: {0}")]
     ParseRes(serde_json::Error),
+    #[error("rpc error returned")]
+    RpcErr(RpcError),
 }
 
 impl<W, R> Drop for JsonRpc<W, R> {

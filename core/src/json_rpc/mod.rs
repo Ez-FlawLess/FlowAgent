@@ -1,40 +1,61 @@
+use std::{marker::PhantomData, sync::Arc};
+
+use serde_json::value::RawValue;
 use thiserror::Error;
-use tokio::io::{self, AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
+use tokio::{
+    io::{self, AsyncRead, AsyncWriteExt},
+    sync::{Mutex, RwLock, oneshot},
+    task::JoinHandle,
+};
 
 use crate::{
     json_rpc::{
-        id::JsonRpcIdHandler,
-        message::{RpcMessage, RpcMsgPayload},
-        request::RpcRequest,
-        version::JsonRpcVersion,
+        id::JsonRpcIdHandler, listener::RpcListener, request::RpcRequest, version::JsonRpcVersion,
+        waiting_list::WaitingList,
     },
     schemes::{Request, Response},
 };
 
 mod id;
+mod listener;
 mod message;
 mod request;
 pub mod version;
+mod waiting_list;
 
 pub struct JsonRpc<W, R> {
-    writer: W,
-    reader: BufReader<R>,
+    writer: Mutex<W>,
     id_handler: JsonRpcIdHandler,
+    waiting_list: Arc<RwLock<WaitingList>>,
+    listener_handler: JoinHandle<()>,
+    _reader: PhantomData<R>,
 }
 
 impl<W, R> JsonRpc<W, R>
 where
     W: AsyncWriteExt + Unpin,
-    R: AsyncRead + Unpin,
+    R: AsyncRead + Unpin + Send + Sync + 'static,
 {
     pub fn new(writer: W, reader: R) -> Self {
+        let waiting_list = Arc::new(RwLock::new(WaitingList::new()));
+        let rcp_listener = RpcListener::new(reader, Arc::clone(&waiting_list));
+
+        let handler = tokio::spawn(rcp_listener.run());
+
         Self {
-            writer,
-            reader: BufReader::new(reader),
+            writer: Mutex::new(writer),
             id_handler: JsonRpcIdHandler::new(),
+            waiting_list,
+            listener_handler: handler,
+            _reader: PhantomData,
         }
     }
+}
 
+impl<W, R> JsonRpc<W, R>
+where
+    W: AsyncWriteExt + Unpin,
+{
     pub async fn send<Req: Request, Res: Response>(
         &mut self,
         request: Req,
@@ -49,27 +70,24 @@ where
         let mut payload = serde_json::to_string(&body).or(Err(RpcSendErr::Internal))?;
         payload.push('\n');
 
-        self.writer
-            .write_all(payload.as_bytes())
-            .await
-            .map_err(RpcSendErr::Write)?;
-        self.writer.flush().await.map_err(RpcSendErr::Write)?;
+        let (res_sender, res_receiver) = oneshot::channel::<Box<RawValue>>();
+        {
+            let mut list = self.waiting_list.write().await;
+            list.add_to_list(body.id.clone(), res_sender);
+        };
 
-        let mut response = String::new();
-        self.reader
-            .read_line(&mut response)
-            .await
-            .map_err(RpcSendErr::Read)?;
+        {
+            let mut writer = self.writer.lock().await;
+            writer
+                .write_all(payload.as_bytes())
+                .await
+                .map_err(RpcSendErr::Write)?;
+            writer.flush().await.map_err(RpcSendErr::Write)?;
+        };
 
-        let msg = serde_json::from_str::<RpcMessage>(response.as_str()).unwrap();
-        let payload = RpcMsgPayload::try_from(msg).unwrap();
+        let response = res_receiver.await.or(Err(RpcSendErr::Internal))?;
 
-        match payload {
-            RpcMsgPayload::Response { id: _, result } => {
-                Ok(serde_json::from_str::<Res>(result.get()).unwrap())
-            }
-            _ => todo!(),
-        }
+        serde_json::from_str(response.get()).map_err(RpcSendErr::ParseRes)
     }
 }
 
@@ -81,4 +99,6 @@ pub enum RpcSendErr {
     Write(io::Error),
     #[error("failed to read from IO: {0}")]
     Read(io::Error),
+    #[error("failed to parse response: {0}")]
+    ParseRes(serde_json::Error),
 }

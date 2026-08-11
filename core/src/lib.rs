@@ -11,6 +11,7 @@ use crate::{
 mod json_rpc;
 mod schemes;
 mod shared;
+mod utils;
 
 #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
 compile_error!("this code only runs on Windows, Linux, and macOS");

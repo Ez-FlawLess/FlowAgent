@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 /// Unique identifier for a session configuration option.
 #[derive(Deserialize)]
-pub struct SessionConfigId(String);
+pub struct SessionConfigId(pub String);
 
 /// A session configuration option selector and its current state.
 #[derive(Deserialize)]
@@ -37,7 +37,7 @@ pub enum SessionConfigOptionCategory {
 }
 
 #[derive(Deserialize)]
-pub struct SessionConfigValueId(String);
+pub struct SessionConfigValueId(pub String);
 
 #[derive(Deserialize)]
 #[serde(tag = "type")]
@@ -60,7 +60,7 @@ pub enum SessionConfigOptionVariant {
 }
 
 #[derive(Deserialize)]
-pub struct SessionConfigGroupId(String);
+pub struct SessionConfigGroupId(pub String);
 
 /// Possible values for a session configuration option.
 #[derive(Deserialize)]
@@ -78,11 +78,11 @@ pub enum SessionConfigSelectOptions {
 #[serde(rename_all = "camelCase")]
 pub struct SessionConfigSelectOption {
     /// Unique identifier for this option value.
-    value: SessionConfigValueId,
+    pub value: SessionConfigValueId,
     /// Human-readable label for this option value.
-    name: String,
+    pub name: String,
     /// Optional description for this option value.
-    description: Option<String>,
+    pub description: Option<String>,
 }
 
 /// A group of possible values for a session configuration option.
@@ -90,11 +90,11 @@ pub struct SessionConfigSelectOption {
 #[serde(rename_all = "camelCase")]
 pub struct SessionConfigSelectGroup {
     /// Unique identifier for this group.
-    group: SessionConfigGroupId,
+    pub group: SessionConfigGroupId,
     /// Human-readable label for this group.
-    name: String,
+    pub name: String,
     /// The set of option values in this group.
-    options: Vec<SessionConfigSelectOption>,
+    pub options: Vec<SessionConfigSelectOption>,
 }
 
 #[cfg(test)]

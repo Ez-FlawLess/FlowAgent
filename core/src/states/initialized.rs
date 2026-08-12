@@ -5,12 +5,22 @@ use thiserror::Error;
 use crate::{
     Core,
     json_rpc::RpcSendErr,
-    schemes::session::new::{NewSessionReq, NewSessionRes},
-    states::{State, sealed::Sealed, session::Session},
+    schemes::session::{
+        config_option::SessionConfigOptionCategory,
+        new::{NewSessionReq, NewSessionRes},
+    },
+    states::{
+        State,
+        sealed::Sealed,
+        session::{
+            Session,
+            config::{ConfigItem, NewConfigItemErr},
+        },
+    },
 };
 
 pub struct Initialized {
-    pub client_name: String,
+    pub(crate) client_name: String,
 }
 
 impl Sealed for Initialized {}
@@ -37,12 +47,26 @@ impl Core<Initialized> {
             return Err(CreateSessionErr::EmptyId);
         }
 
+        let mut model = None;
+
+        for config_option in response.config_options {
+            if let Some(SessionConfigOptionCategory::Model) = config_option.category {
+                if model.is_some() {
+                    return Err(CreateSessionErr::DupModelConf);
+                }
+
+                model =
+                    Some(ConfigItem::new(config_option).map_err(CreateSessionErr::ParseModelConf)?);
+            }
+        }
+
         Ok(Core {
             acp_process: self.acp_process,
             rpc: self.rpc,
             state: Session {
                 initialized: self.state,
                 session_id: response.session_id,
+                model: model.ok_or(CreateSessionErr::ModelConfMissing)?,
             },
         })
     }
@@ -54,4 +78,10 @@ pub enum CreateSessionErr {
     Rpc(#[from] RpcSendErr),
     #[error("session id returned was empty")]
     EmptyId,
+    #[error("model config is missing")]
+    ModelConfMissing,
+    #[error("duplicate model config was provided")]
+    DupModelConf,
+    #[error("error parsing model config: {0}")]
+    ParseModelConf(NewConfigItemErr),
 }

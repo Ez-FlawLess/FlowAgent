@@ -1,6 +1,11 @@
 use crate::{
     Core,
-    schemes::session::id::SessionId,
+    json_rpc::RpcSendErr,
+    schemes::session::{
+        config_option::{SessionConfigOption, SessionConfigOptionCategory},
+        id::SessionId,
+        set_config_option::{SetConfigOptionReq, SetConfigOptionRes},
+    },
     states::{
         State,
         initialized::Initialized,
@@ -29,11 +34,19 @@ impl Core<Session> {
         self.state.session_id.id()
     }
 
-    pub fn model_options(&self) -> &[ConfigItemOption] {
-        &self.state.model.options
+    fn update_configs(&mut self, config_options: Vec<SessionConfigOption>) {
+        for config_option in config_options {
+            if let Some(SessionConfigOptionCategory::Model) = config_option.category
+                && let Ok(model) = ConfigItem::new(config_option)
+            {
+                self.state.model = model;
+            }
+        }
     }
 
-    pub fn current_model(&self) -> &ConfigItemOption {
-        &self.state.model.value
+    async fn set_config_option(&mut self, req: SetConfigOptionReq) -> Result<(), RpcSendErr> {
+        let response = self.rpc.send::<_, SetConfigOptionRes>(req).await?;
+        self.update_configs(response.config_options);
+        Ok(())
     }
 }

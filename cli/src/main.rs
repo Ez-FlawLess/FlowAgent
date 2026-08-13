@@ -7,7 +7,7 @@ async fn main() {
     let core = core.initialize().await.unwrap();
 
     // Store core mutably so model/session changes can be persisted
-    let core = core
+    let mut core = core
         .create_session(env::current_dir().unwrap_or(PathBuf::from("/")))
         .await
         .unwrap();
@@ -61,7 +61,8 @@ async fn main() {
                 let model_number = input.trim_start_matches("/set-model ").trim();
                 let index = model_number.parse::<usize>().unwrap() - 1;
 
-                todo!()
+                let model_id = core.model_options().get(index).unwrap().id();
+                core.set_model(model_id).await.unwrap();
             }
 
             // Unknown slash commands

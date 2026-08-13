@@ -1,8 +1,16 @@
 use thiserror::Error;
 
-use crate::schemes::session::config_option::{
-    SessionConfigId, SessionConfigOption, SessionConfigOptionVariant, SessionConfigSelectOption,
-    SessionConfigSelectOptions, SessionConfigValueId,
+use crate::{
+    Core,
+    json_rpc::RpcSendErr,
+    schemes::session::{
+        config_option::{
+            SessionConfigId, SessionConfigOption, SessionConfigOptionVariant,
+            SessionConfigSelectOption, SessionConfigSelectOptions, SessionConfigValueId,
+        },
+        set_config_option::{ConfigOptionPayload, SetConfigOptionReq},
+    },
+    states::session::Session,
 };
 
 pub(crate) struct ConfigItem {
@@ -21,6 +29,25 @@ pub struct ConfigItemOption {
     id: ConfigItemValueId,
     name: String,
     description: Option<String>,
+}
+
+impl Core<Session> {
+    pub fn model_options(&self) -> &[ConfigItemOption] {
+        &self.state.model.options
+    }
+
+    pub fn current_model(&self) -> &ConfigItemOption {
+        &self.state.model.value
+    }
+
+    pub async fn set_model(&mut self, id: ConfigItemValueId) -> Result<(), RpcSendErr> {
+        self.set_config_option(SetConfigOptionReq {
+            session_id: self.state.session_id.clone(),
+            config_id: self.state.model.id.0.clone(),
+            payload: ConfigOptionPayload::string(id.0),
+        })
+        .await
+    }
 }
 
 impl ConfigItem {
@@ -76,6 +103,10 @@ pub enum NewConfigItemErr {
 }
 
 impl ConfigItemOption {
+    pub fn id(&self) -> ConfigItemValueId {
+        self.id.clone()
+    }
+
     pub fn name(&self) -> &str {
         self.name.as_str()
     }

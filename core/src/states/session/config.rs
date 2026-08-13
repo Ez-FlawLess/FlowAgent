@@ -6,57 +6,57 @@ use crate::{
     schemes::session::{
         config_option::{
             SessionConfigId, SessionConfigOption, SessionConfigOptionVariant,
-            SessionConfigSelectOption, SessionConfigSelectOptions, SessionConfigValueId,
+            SessionConfigSelectOption, SessionConfigSelectOptions,
         },
         set_config_option::{ConfigOptionPayload, SetConfigOptionReq},
     },
-    states::session::Session,
+    states::session::{
+        Session,
+        config_id::{ConfigItemValueId, model::ModelConfigId},
+    },
 };
 
-pub(crate) struct ConfigItem {
+pub(crate) struct ConfigItem<I: ConfigItemValueId> {
     pub id: ConfigItemId,
-    pub value: ConfigItemOption,
-    pub options: Vec<ConfigItemOption>,
+    pub value: ConfigItemOption<I>,
+    pub options: Vec<ConfigItemOption<I>>,
 }
 
 pub(crate) struct ConfigItemId(String);
 
-#[derive(Clone, PartialEq, Eq)]
-pub struct ConfigItemValueId(String);
-
 #[derive(Clone)]
-pub struct ConfigItemOption {
-    id: ConfigItemValueId,
+pub struct ConfigItemOption<I: ConfigItemValueId> {
+    id: I,
     name: String,
     description: Option<String>,
 }
 
 impl Core<Session> {
-    pub fn model_options(&self) -> &[ConfigItemOption] {
-        &self.state.model.options
+    pub fn model_options(&self) -> &[ConfigItemOption<ModelConfigId>] {
+        self.state.model.options.as_slice()
     }
 
-    pub fn current_model(&self) -> &ConfigItemOption {
+    pub fn current_model(&self) -> &ConfigItemOption<ModelConfigId> {
         &self.state.model.value
     }
 
-    pub async fn set_model(&mut self, id: ConfigItemValueId) -> Result<(), RpcSendErr> {
+    pub async fn set_model(&mut self, id: ModelConfigId) -> Result<(), RpcSendErr> {
         self.set_config_option(SetConfigOptionReq {
             session_id: self.state.session_id.clone(),
             config_id: self.state.model.id.0.clone(),
-            payload: ConfigOptionPayload::string(id.0),
+            payload: ConfigOptionPayload::string(id),
         })
         .await
     }
 }
 
-impl ConfigItem {
+impl<I: ConfigItemValueId> ConfigItem<I> {
     pub fn new(config_option: SessionConfigOption) -> Result<Self, NewConfigItemErr> {
         Self::try_from(config_option)
     }
 }
 
-impl TryFrom<SessionConfigOption> for ConfigItem {
+impl<I: ConfigItemValueId> TryFrom<SessionConfigOption> for ConfigItem<I> {
     type Error = NewConfigItemErr;
 
     fn try_from(value: SessionConfigOption) -> Result<Self, Self::Error> {
@@ -74,10 +74,10 @@ impl TryFrom<SessionConfigOption> for ConfigItem {
                 SessionConfigSelectOptions::Ungrouped(select_option) => Some(select_option.into()),
                 SessionConfigSelectOptions::Grouped(_) => None,
             })
-            .collect::<Option<Vec<ConfigItemOption>>>()
+            .collect::<Option<Vec<ConfigItemOption<I>>>>()
             .ok_or(NewConfigItemErr::NotUngrouped)?;
 
-        let current_value_id = ConfigItemValueId::from(current_value);
+        let current_value_id = I::from(current_value);
         let current_value = options
             .iter()
             .find(|option| option.id == current_value_id)
@@ -102,8 +102,8 @@ pub enum NewConfigItemErr {
     CurrentMissing,
 }
 
-impl ConfigItemOption {
-    pub fn id(&self) -> ConfigItemValueId {
+impl<I: ConfigItemValueId> ConfigItemOption<I> {
+    pub fn id(&self) -> I {
         self.id.clone()
     }
 
@@ -128,19 +128,7 @@ impl From<ConfigItemId> for SessionConfigId {
     }
 }
 
-impl From<SessionConfigValueId> for ConfigItemValueId {
-    fn from(value: SessionConfigValueId) -> Self {
-        Self(value.0)
-    }
-}
-
-impl From<ConfigItemValueId> for SessionConfigValueId {
-    fn from(value: ConfigItemValueId) -> Self {
-        Self(value.0)
-    }
-}
-
-impl From<SessionConfigSelectOption> for ConfigItemOption {
+impl<I: ConfigItemValueId> From<SessionConfigSelectOption> for ConfigItemOption<I> {
     fn from(value: SessionConfigSelectOption) -> Self {
         Self {
             id: value.value.into(),

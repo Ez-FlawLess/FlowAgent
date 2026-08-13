@@ -10,16 +10,17 @@ use crate::{
         State,
         initialized::Initialized,
         sealed::Sealed,
-        session::config::{ConfigItem, ConfigItemOption},
+        session::{config::ConfigItem, config_id::model::ModelConfigId},
     },
 };
 
 pub mod config;
+pub mod config_id;
 
 pub struct Session {
     pub(crate) initialized: Initialized,
     pub(crate) session_id: SessionId,
-    pub(crate) model: ConfigItem,
+    pub(crate) model: ConfigItem<ModelConfigId>,
 }
 
 impl Sealed for Session {}

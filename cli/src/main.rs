@@ -1,6 +1,9 @@
 use std::{env, path::PathBuf};
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
 
+const HELP: &str =
+    "/model, /models, /set-model <id number>, /mode, /modes, /set-mode <id number>, /exit, /quit";
+
 #[tokio::main]
 async fn main() {
     let core = flowagent_core::Core::new().await.unwrap();
@@ -13,7 +16,7 @@ async fn main() {
         .unwrap();
 
     println!("Session started: {}", core.session_id());
-    println!("Commands: /model, /models, /set-model <id number>, /exit\n");
+    println!("Commands: {HELP}\n");
 
     let stdin = io::stdin();
     let mut stdout = io::stdout();
@@ -50,6 +53,19 @@ async fn main() {
                 }
             }
 
+            // Check active mode
+            "/mode" => {
+                println!("Current mode: {}", core.current_mode().name());
+            }
+
+            // List all available modes
+            "/modes" => {
+                println!("Available modes:");
+                for (index, mode) in core.mode_options().iter().enumerate() {
+                    println!("{} - {}", index + 1, mode.name());
+                }
+            }
+
             // Exit application
             "/exit" | "/quit" => {
                 println!("Goodbye!");
@@ -65,10 +81,18 @@ async fn main() {
                 core.set_model(model_id).await.unwrap();
             }
 
+            _ if input.starts_with("/set-mode ") => {
+                let mode_number = input.trim_start_matches("/set-mode ").trim();
+                let index = mode_number.parse::<usize>().unwrap() - 1;
+
+                let mode_id = core.mode_options().get(index).unwrap().id();
+                core.set_mode(mode_id).await.unwrap();
+            }
+
             // Unknown slash commands
             _ if input.starts_with('/') => {
                 println!("Unknown command: {}", input);
-                println!("Available commands: /model, /models, /set-model <name>, /exit");
+                println!("Available commands: {HELP}");
             }
 
             // General prompt handling

@@ -21,3 +21,23 @@ pub mod model {
         }
     }
 }
+
+pub mod mode {
+    use super::*;
+
+    #[derive(Clone, PartialEq, Eq)]
+    pub struct ModeConfigId(String);
+    impl ConfigItemValueId for ModeConfigId {}
+
+    impl From<SessionConfigValueId> for ModeConfigId {
+        fn from(value: SessionConfigValueId) -> Self {
+            Self(value.0)
+        }
+    }
+
+    impl From<ModeConfigId> for String {
+        fn from(value: ModeConfigId) -> Self {
+            value.0
+        }
+    }
+}

@@ -5,14 +5,14 @@ use crate::{
     json_rpc::RpcSendErr,
     schemes::session::{
         config_option::{
-            SessionConfigId, SessionConfigOption, SessionConfigOptionVariant,
-            SessionConfigSelectOption, SessionConfigSelectOptions,
+            SessionConfigId, SessionConfigOption, SessionConfigOptionCategory,
+            SessionConfigOptionVariant, SessionConfigSelectOption, SessionConfigSelectOptions,
         },
-        set_config_option::{ConfigOptionPayload, SetConfigOptionReq},
+        set_config_option::{ConfigOptionPayload, SetConfigOptionReq, SetConfigOptionRes},
     },
     states::session::{
         Session,
-        config_id::{ConfigItemValueId, model::ModelConfigId},
+        config_id::{ConfigItemValueId, mode::ModeConfigId, model::ModelConfigId},
     },
 };
 
@@ -47,6 +47,47 @@ impl Core<Session> {
             payload: ConfigOptionPayload::string(id),
         })
         .await
+    }
+
+    pub fn mode_options(&self) -> &[ConfigItemOption<ModeConfigId>] {
+        self.state.mode.options.as_slice()
+    }
+
+    pub fn current_mode(&self) -> &ConfigItemOption<ModeConfigId> {
+        &self.state.mode.value
+    }
+
+    pub async fn set_mode(&mut self, id: ModeConfigId) -> Result<(), RpcSendErr> {
+        self.set_config_option(SetConfigOptionReq {
+            session_id: self.state.session_id.clone(),
+            config_id: self.state.mode.id.0.clone(),
+            payload: ConfigOptionPayload::string(id),
+        })
+        .await
+    }
+
+    fn update_configs(&mut self, config_options: Vec<SessionConfigOption>) {
+        for config_option in config_options {
+            match config_option.category {
+                Some(SessionConfigOptionCategory::Model) => {
+                    if let Ok(model) = ConfigItem::new(config_option) {
+                        self.state.model = model;
+                    }
+                }
+                Some(SessionConfigOptionCategory::Mode) => {
+                    if let Ok(mode) = ConfigItem::new(config_option) {
+                        self.state.mode = mode;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    async fn set_config_option(&mut self, req: SetConfigOptionReq) -> Result<(), RpcSendErr> {
+        let response = self.rpc.send::<_, SetConfigOptionRes>(req).await?;
+        self.update_configs(response.config_options);
+        Ok(())
     }
 }
 

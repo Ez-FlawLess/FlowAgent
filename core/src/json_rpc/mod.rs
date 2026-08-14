@@ -2,7 +2,7 @@ use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 use thiserror::Error;
 use tokio::{
-    io::{self, AsyncRead, AsyncWriteExt},
+    io::{self, AsyncRead, AsyncWrite, AsyncWriteExt},
     sync::{Mutex, RwLock, oneshot},
     task::JoinHandle,
     time,
@@ -38,8 +38,8 @@ pub struct JsonRpc<W, R> {
 
 impl<W, R> JsonRpc<W, R>
 where
-    W: AsyncWriteExt + Unpin,
-    R: AsyncRead + Unpin + Send + Sync + 'static,
+    W: AsyncWrite + Unpin,
+    R: AsyncRead + Unpin + Send + 'static,
 {
     pub fn new(writer: W, reader: R) -> Self {
         let waiting_list = Arc::new(RwLock::new(WaitingList::new()));
@@ -59,7 +59,7 @@ where
 
 impl<W, R> JsonRpc<W, R>
 where
-    W: AsyncWriteExt + Unpin,
+    W: AsyncWrite + Unpin,
 {
     pub async fn send<Req: Request, Res: Response>(&self, request: Req) -> Result<Res, RpcSendErr> {
         self.send_with_timeout(request, Duration::from_secs(30))

@@ -46,17 +46,23 @@ where
 
             match payload {
                 RpcMsgPayload::Response { id, result } => {
-                    self.handle_response(id, Ok(result)).await
+                    Self::handle_response(&self.waiting_list, id, Ok(result)).await
                 }
-                RpcMsgPayload::Error { id, error } => self.handle_response(id, Err(error)).await,
+                RpcMsgPayload::Error { id, error } => {
+                    Self::handle_response(&self.waiting_list, id, Err(error)).await
+                }
                 _ => {}
             };
         }
     }
 
-    async fn handle_response(&self, id: JsonRpcId, outcome: Result<Box<RawValue>, Box<RawValue>>) {
+    async fn handle_response(
+        waiting_list: &Arc<RwLock<WaitingList>>,
+        id: JsonRpcId,
+        outcome: Result<Box<RawValue>, Box<RawValue>>,
+    ) {
         let index = {
-            let list = self.waiting_list.read().await;
+            let list = waiting_list.read().await;
 
             match list.find_index(id) {
                 Some(i) => i,
@@ -65,7 +71,7 @@ where
         };
 
         let sender = {
-            let mut list = self.waiting_list.write().await;
+            let mut list = waiting_list.write().await;
             list.get_sender(index)
         };
 

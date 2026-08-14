@@ -1,50 +1,32 @@
-use std::process::Stdio;
-
 use thiserror::Error;
-use tokio::{io, process::Command};
 
 use crate::{
     Core,
+    acp_agent::AcpAgent,
     json_rpc::{JsonRpc, RpcSendErr},
     schemes::init::{ClientInfo, InitReq, InitRes},
     shared::acp_protocl_version::AcpProtocolVersion,
     states::{State, initialized::Initialized, sealed::Sealed},
 };
 
-pub struct Connected;
+pub struct Created;
 
-impl Sealed for Connected {}
-impl State for Connected {}
+impl Sealed for Created {}
+impl State for Created {}
 
-impl Core<Connected> {
-    pub async fn new() -> Result<Self, NewCoreErr> {
-        #[cfg(any(target_os = "linux", target_os = "macos"))]
-        let program = "opencode";
+impl<A: AcpAgent> Core<A, Created> {
+    pub fn new(acp_agent: A) -> Self {
+        let (reader, writer, process) = acp_agent.into_parts();
+        let rpc = JsonRpc::new(writer, reader);
 
-        #[cfg(target_os = "windows")]
-        let program = "opencode.cmd";
-
-        let mut acp_process = Command::new(program)
-            .arg("acp")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .kill_on_drop(true)
-            .spawn()
-            .map_err(NewCoreErr::SpawnProc)?;
-
-        let stdin = acp_process.stdin.take().ok_or(NewCoreErr::Internal)?;
-        let stdout = acp_process.stdout.take().ok_or(NewCoreErr::Internal)?;
-
-        let rpc = JsonRpc::new(stdin, stdout);
-
-        Ok(Self {
-            acp_process,
+        Self {
+            acp_process: process,
             rpc,
-            state: Connected,
-        })
+            state: Created,
+        }
     }
 
-    pub async fn initialize(self) -> Result<Core<Initialized>, InitializeErr> {
+    pub async fn initialize(self) -> Result<Core<A, Initialized>, InitializeErr> {
         let response = self
             .rpc
             .send::<_, InitRes>(InitReq {
@@ -74,14 +56,6 @@ impl Core<Connected> {
             },
         })
     }
-}
-
-#[derive(Debug, Error)]
-pub enum NewCoreErr {
-    #[error("error spawning acp agent process: {0}")]
-    SpawnProc(io::Error),
-    #[error("there was an internal error")]
-    Internal,
 }
 
 #[derive(Debug, Error)]

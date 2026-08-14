@@ -2,6 +2,7 @@ use thiserror::Error;
 
 use crate::{
     Core,
+    acp_agent::AcpAgent,
     json_rpc::RpcSendErr,
     schemes::session::{
         config_option::{
@@ -31,7 +32,7 @@ pub struct ConfigItemOption<I: ConfigItemValueId> {
     description: Option<String>,
 }
 
-impl Core<Session> {
+impl<A: AcpAgent> Core<A, Session> {
     pub fn model_options(&self) -> &[ConfigItemOption<ModelConfigId>] {
         self.state.model.options.as_slice()
     }

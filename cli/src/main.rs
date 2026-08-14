@@ -1,3 +1,4 @@
+use flowagent_core::acp_agent::opencode::Opencode;
 use std::{env, path::PathBuf};
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
 
@@ -6,7 +7,9 @@ const HELP: &str =
 
 #[tokio::main]
 async fn main() {
-    let core = flowagent_core::Core::new().await.unwrap();
+    let acp_agent = Opencode::new().unwrap();
+
+    let core = flowagent_core::Core::new(acp_agent);
     let core = core.initialize().await.unwrap();
 
     // Store core mutably so model/session changes can be persisted

@@ -1,5 +1,6 @@
 use crate::{
     Core,
+    acp_agent::AcpAgent,
     schemes::session::id::SessionId,
     states::{
         State,
@@ -25,7 +26,7 @@ pub struct Session {
 impl Sealed for Session {}
 impl State for Session {}
 
-impl Core<Session> {
+impl<A: AcpAgent> Core<A, Session> {
     pub fn client_name(&self) -> &str {
         self.state.initialized.client_name.as_str()
     }

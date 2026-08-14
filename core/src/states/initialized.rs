@@ -4,6 +4,7 @@ use thiserror::Error;
 
 use crate::{
     Core,
+    acp_agent::AcpAgent,
     json_rpc::RpcSendErr,
     schemes::session::{
         config_option::SessionConfigOptionCategory,
@@ -26,7 +27,7 @@ pub struct Initialized {
 impl Sealed for Initialized {}
 impl State for Initialized {}
 
-impl Core<Initialized> {
+impl<A: AcpAgent> Core<A, Initialized> {
     pub fn client_name(&self) -> &str {
         self.state.client_name.as_str()
     }
@@ -34,7 +35,7 @@ impl Core<Initialized> {
     pub async fn create_session(
         self,
         cwd: impl Into<PathBuf>,
-    ) -> Result<Core<Session>, CreateSessionErr> {
+    ) -> Result<Core<A, Session>, CreateSessionErr> {
         let response = self
             .rpc
             .send::<_, NewSessionRes>(NewSessionReq {

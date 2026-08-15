@@ -4,6 +4,7 @@ use crossbeam::utils::CachePadded;
 use serde::{Deserialize, Serialize};
 
 #[derive(PartialEq, Eq, Serialize, Deserialize, Clone)]
+#[cfg_attr(test, derive(Debug))]
 pub struct JsonRpcId(u32);
 
 #[derive(Default)]

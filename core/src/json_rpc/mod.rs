@@ -28,6 +28,9 @@ mod request;
 pub mod version;
 mod waiting_list;
 
+#[cfg(test)]
+mod test_utils;
+
 pub struct JsonRpc<W, R> {
     writer: Mutex<W>,
     id_handler: JsonRpcIdHandler,
@@ -137,5 +140,86 @@ pub enum RpcSendErr {
 impl<W, R> Drop for JsonRpc<W, R> {
     fn drop(&mut self) {
         self.listener_handler.abort();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde::{Deserialize, Serialize};
+    use tokio::io::{AsyncBufReadExt, BufReader};
+
+    use crate::json_rpc::{
+        message::{RpcMessage, RpcMsgPayload},
+        test_utils::RpcResponse,
+    };
+
+    use super::*;
+
+    #[derive(Serialize, Deserialize)]
+    struct PingReq {
+        msg: String,
+    }
+    impl Request for PingReq {
+        fn method() -> &'static str {
+            "ping"
+        }
+    }
+
+    #[derive(Serialize, Deserialize)]
+    struct PingRes {
+        msg: String,
+    }
+    impl Response for PingRes {}
+
+    #[tokio::test]
+    async fn test_json_rpc_ping_request() {
+        let (client_io, server_io) = io::duplex(1024);
+        let (client_read, client_write) = io::split(client_io);
+        let (server_read, mut server_write) = io::split(server_io);
+
+        let rpc = JsonRpc::new(client_write, client_read);
+
+        let server_task = tokio::spawn(async move {
+            let mut reader = BufReader::new(server_read);
+            let mut line = String::new();
+            reader.read_line(&mut line).await.unwrap();
+
+            let msg = serde_json::from_str::<RpcMessage>(line.as_str()).unwrap();
+
+            let payload = RpcMsgPayload::try_from(msg).unwrap();
+
+            match payload {
+                RpcMsgPayload::Request { id, method, params } => {
+                    assert_eq!(PingReq::method(), method);
+                    let req: PingReq = serde_json::from_str(params.get()).unwrap();
+                    let res = RpcResponse {
+                        jsonrpc: JsonRpcVersion::V2,
+                        id,
+                        result: PingRes { msg: req.msg },
+                    };
+
+                    let mut bytes = serde_json::to_vec(&res).unwrap();
+                    bytes.push(b'\n');
+                    server_write.write_all(&bytes).await.unwrap();
+                }
+                _ => {
+                    panic!("payload not Request: {:?}", payload);
+                }
+            };
+        });
+
+        let response: PingRes = rpc
+            .send_with_timeout(
+                PingReq {
+                    msg: "Hi".to_string(),
+                },
+                Duration::from_secs(5),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.msg, "Hi");
+
+        server_task.await.unwrap();
     }
 }

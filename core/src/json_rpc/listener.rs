@@ -29,14 +29,14 @@ where
     }
 
     pub async fn run(mut self) {
-        let mut response = String::new();
+        let mut line = String::new();
         loop {
-            response.clear();
-            if self.reader.read_line(&mut response).await.is_err() {
+            line.clear();
+            if self.reader.read_line(&mut line).await.is_err() {
                 continue;
             }
 
-            let Ok(msg) = serde_json::from_str::<RpcMessage>(response.as_str()) else {
+            let Ok(msg) = serde_json::from_str::<RpcMessage>(line.as_str()) else {
                 continue;
             };
 

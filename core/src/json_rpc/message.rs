@@ -22,6 +22,7 @@ pub struct RpcMessage {
     pub params: Option<Box<RawValue>>,
 }
 
+#[cfg_attr(test, derive(Debug))]
 pub enum RpcMsgPayload {
     Response {
         id: JsonRpcId,

@@ -2,24 +2,28 @@ use serde::Deserialize;
 use serde_json::value::RawValue;
 use thiserror::Error;
 
+#[cfg(test)]
+use serde::Serialize;
+
 use super::id::JsonRpcId;
 use super::version::JsonRpcVersion;
 
 #[derive(Deserialize)]
+#[cfg_attr(test, derive(Serialize))]
 #[serde(rename_all = "camelCase")]
 pub struct RpcMessage {
     #[serde(rename = "jsonrpc")]
-    pub _version: JsonRpcVersion,
+    version: JsonRpcVersion,
     #[serde(default)]
-    pub id: Option<JsonRpcId>,
+    id: Option<JsonRpcId>,
     #[serde(default)]
-    pub result: Option<Box<RawValue>>,
+    result: Option<Box<RawValue>>,
     #[serde(default)]
-    pub error: Option<Box<RawValue>>,
+    error: Option<Box<RawValue>>,
     #[serde(default)]
-    pub method: Option<String>,
+    method: Option<String>,
     #[serde(default)]
-    pub params: Option<Box<RawValue>>,
+    params: Option<Box<RawValue>>,
 }
 
 #[cfg_attr(test, derive(Debug))]
@@ -78,3 +82,42 @@ impl TryFrom<RpcMessage> for RpcMsgPayload {
 #[derive(Debug, Error)]
 #[error("rpc message is invalid")]
 pub struct InvalidRpcMsg;
+
+impl RpcMessage {
+    pub fn new(version: JsonRpcVersion, payload: RpcMsgPayload) -> Self {
+        match payload {
+            RpcMsgPayload::Response { id, result } => Self {
+                version,
+                id: Some(id),
+                result: Some(result),
+                error: None,
+                method: None,
+                params: None,
+            },
+            RpcMsgPayload::Error { id, error } => Self {
+                version,
+                id: Some(id),
+                result: None,
+                error: Some(error),
+                method: None,
+                params: None,
+            },
+            RpcMsgPayload::Request { id, method, params } => Self {
+                version,
+                id: Some(id),
+                result: None,
+                error: None,
+                method: Some(method),
+                params: Some(params),
+            },
+            RpcMsgPayload::Notification { method, params } => Self {
+                version,
+                id: None,
+                result: None,
+                error: None,
+                method: Some(method),
+                params: Some(params),
+            },
+        }
+    }
+}

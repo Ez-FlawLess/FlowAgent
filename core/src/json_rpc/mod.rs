@@ -28,9 +28,6 @@ mod request;
 pub mod version;
 mod waiting_list;
 
-#[cfg(test)]
-mod test_utils;
-
 pub struct JsonRpc<W, R> {
     writer: Mutex<W>,
     id_handler: JsonRpcIdHandler,
@@ -146,12 +143,10 @@ impl<W, R> Drop for JsonRpc<W, R> {
 #[cfg(test)]
 mod tests {
     use serde::{Deserialize, Serialize};
+    use serde_json::value::RawValue;
     use tokio::io::{AsyncBufReadExt, BufReader};
 
-    use crate::json_rpc::{
-        message::{RpcMessage, RpcMsgPayload},
-        test_utils::RpcResponse,
-    };
+    use crate::json_rpc::message::{RpcMessage, RpcMsgPayload};
 
     use super::*;
 
@@ -192,13 +187,17 @@ mod tests {
                 RpcMsgPayload::Request { id, method, params } => {
                     assert_eq!(PingReq::method(), method);
                     let req: PingReq = serde_json::from_str(params.get()).unwrap();
-                    let res = RpcResponse {
-                        jsonrpc: JsonRpcVersion::V2,
-                        id,
-                        result: PingRes { msg: req.msg },
-                    };
+                    let res_payload = PingRes { msg: req.msg };
+                    let res_json = serde_json::to_string(&res_payload).unwrap();
+                    let result_raw = RawValue::from_string(res_json).unwrap();
 
-                    let mut bytes = serde_json::to_vec(&res).unwrap();
+                    let response_payload = RpcMsgPayload::Response {
+                        id,
+                        result: result_raw,
+                    };
+                    let res_msg = RpcMessage::new(JsonRpcVersion::V2, response_payload);
+
+                    let mut bytes = serde_json::to_vec(&res_msg).unwrap();
                     bytes.push(b'\n');
                     server_write.write_all(&bytes).await.unwrap();
                 }

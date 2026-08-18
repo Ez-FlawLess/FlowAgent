@@ -1,16 +1,19 @@
-use crate::schemes::session::config_option::SessionConfigValueId;
+use crate::schemes::session::config_option as schemas;
 
-pub trait ConfigItemValueId: Clone + Eq + From<SessionConfigValueId> + Into<String> {}
+pub trait SessionConfigValueId:
+    Clone + Eq + From<schemas::SessionConfigValueId> + Into<String>
+{
+}
 
 pub mod model {
     use super::*;
 
     #[derive(Clone, PartialEq, Eq)]
     pub struct ModelConfigId(String);
-    impl ConfigItemValueId for ModelConfigId {}
+    impl SessionConfigValueId for ModelConfigId {}
 
-    impl From<SessionConfigValueId> for ModelConfigId {
-        fn from(value: SessionConfigValueId) -> Self {
+    impl From<schemas::SessionConfigValueId> for ModelConfigId {
+        fn from(value: schemas::SessionConfigValueId) -> Self {
             Self(value.0)
         }
     }
@@ -27,10 +30,10 @@ pub mod mode {
 
     #[derive(Clone, PartialEq, Eq)]
     pub struct ModeConfigId(String);
-    impl ConfigItemValueId for ModeConfigId {}
+    impl SessionConfigValueId for ModeConfigId {}
 
-    impl From<SessionConfigValueId> for ModeConfigId {
-        fn from(value: SessionConfigValueId) -> Self {
+    impl From<schemas::SessionConfigValueId> for ModeConfigId {
+        fn from(value: schemas::SessionConfigValueId) -> Self {
             Self(value.0)
         }
     }

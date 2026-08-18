@@ -2,25 +2,15 @@ use crate::{
     Core,
     acp_agent::AcpAgent,
     schemes::session::id::SessionId,
-    states::{
-        State,
-        initialized::Initialized,
-        sealed::Sealed,
-        session::{
-            config::ConfigItem,
-            config_id::{mode::ModeConfigId, model::ModelConfigId},
-        },
-    },
+    states::{State, initialized::Initialized, sealed::Sealed, session::config::SessionConfig},
 };
 
 pub mod config;
-pub mod config_id;
 
 pub struct Session {
     pub(crate) initialized: Initialized,
     pub(crate) session_id: SessionId,
-    pub(crate) model: ConfigItem<ModelConfigId>,
-    pub(crate) mode: ConfigItem<ModeConfigId>,
+    pub(crate) config: SessionConfig,
 }
 
 impl Sealed for Session {}

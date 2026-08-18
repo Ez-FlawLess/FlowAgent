@@ -1,4 +1,4 @@
-use std::{fmt::Display, path::PathBuf};
+use std::path::PathBuf;
 
 use thiserror::Error;
 
@@ -6,16 +6,13 @@ use crate::{
     Core,
     acp_agent::AcpAgent,
     json_rpc::RpcSendErr,
-    schemes::session::{
-        config_option::SessionConfigOptionCategory,
-        new::{NewSessionReq, NewSessionRes},
-    },
+    schemes::session::new::{NewSessionReq, NewSessionRes},
     states::{
         State,
         sealed::Sealed,
         session::{
             Session,
-            config::{ConfigItem, NewConfigItemErr},
+            config::{NewSessionConfigErr, SessionConfig},
         },
     },
 };
@@ -48,41 +45,14 @@ impl<A: AcpAgent> Core<A, Initialized> {
             return Err(CreateSessionErr::EmptyId);
         }
 
-        let mut model = None;
-        let mut mode = None;
-
-        for config_option in response.config_options {
-            match config_option.category {
-                Some(SessionConfigOptionCategory::Model) => {
-                    if model.is_some() {
-                        return Err(CreateSessionErr::DupConf(CreateSessionConfs::Model));
-                    }
-
-                    model = Some(ConfigItem::new(config_option).map_err(|err| {
-                        CreateSessionErr::ParseConf(CreateSessionConfs::Model, err)
-                    })?);
-                }
-                Some(SessionConfigOptionCategory::Mode) => {
-                    if mode.is_some() {
-                        return Err(CreateSessionErr::DupConf(CreateSessionConfs::Mode));
-                    }
-
-                    mode = Some(ConfigItem::new(config_option).map_err(|err| {
-                        CreateSessionErr::ParseConf(CreateSessionConfs::Mode, err)
-                    })?);
-                }
-                _ => {}
-            }
-        }
-
         Ok(Core {
             acp_process: self.acp_process,
             rpc: self.rpc,
             state: Session {
                 initialized: self.state,
                 session_id: response.session_id,
-                model: model.ok_or(CreateSessionErr::ConfMissing(CreateSessionConfs::Model))?,
-                mode: mode.ok_or(CreateSessionErr::ConfMissing(CreateSessionConfs::Mode))?,
+                config: SessionConfig::new(response.config_options)
+                    .map_err(CreateSessionErr::Config)?,
             },
         })
     }
@@ -94,25 +64,6 @@ pub enum CreateSessionErr {
     Rpc(#[from] RpcSendErr),
     #[error("session id returned was empty")]
     EmptyId,
-    #[error("{0} config is missing")]
-    ConfMissing(CreateSessionConfs),
-    #[error("duplicate {0} config was provided")]
-    DupConf(CreateSessionConfs),
-    #[error("error parsing {0} config: {0}")]
-    ParseConf(CreateSessionConfs, NewConfigItemErr),
-}
-
-#[derive(Debug)]
-pub enum CreateSessionConfs {
-    Model,
-    Mode,
-}
-
-impl Display for CreateSessionConfs {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Model => write!(f, "model"),
-            Self::Mode => write!(f, "mode"),
-        }
-    }
+    #[error("failed to parse session config: {0}")]
+    Config(NewSessionConfigErr),
 }

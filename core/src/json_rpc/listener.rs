@@ -51,6 +51,9 @@ where
                 RpcMsgPayload::Error { id, error } => {
                     Self::handle_response(&self.waiting_list, id, Err(error)).await
                 }
+                RpcMsgPayload::Notification { method, params: _ } => {
+                    println!("got notif: {}", method);
+                }
                 _ => {}
             };
         }

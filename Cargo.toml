@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["core", "flow", "tui"]
+members = ["core", "flow", "json-rpc", "tui"]
 
 [workspace.dependencies]
 # error handling
